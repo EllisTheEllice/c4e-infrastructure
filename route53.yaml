@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  ApplicationName:
+    Type: String
+  WebsiteURL:
+    Type: String
+  CloudFrontDomainName:
+    Type: String
+  CustomDomainDistributionDomainName:
+    Type: String
+  CustomDomainDistributionHostedZoneId:
+    Type: String
+
+Resources:
+  Route53Zone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      HostedZoneConfig:
+        Comment: !Sub "My hosted zone for ${WebsiteURL}"
+      Name: !Ref WebsiteURL
+
+  MainARecord:
+    Type: AWS::Route53::RecordSet
+    DependsOn: Route53Zone
+    Properties:
+      HostedZoneId: !Ref Route53Zone
+      Name: !Sub "www.${WebsiteURL}"
+      Type: A
+      AliasTarget:
+        DNSName: !Ref CloudFrontDomainName
+        EvaluateTargetHealth: false
+        HostedZoneId: Z2FDTNDATAQYW2 #this is fix by AWS: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-aliastarget-1.html
+
+  SubdomainARecord:
+    Type: AWS::Route53::RecordSet
+    DependsOn: Route53Zone
+    Properties:
+      HostedZoneId: !Ref Route53Zone
+      Name: !Ref WebsiteURL
+      Type: A
+      AliasTarget:
+        DNSName: !Ref CloudFrontDomainName
+        EvaluateTargetHealth: false
+        HostedZoneId: Z2FDTNDATAQYW2 #this is fix by AWS: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-route53-aliastarget-1.html
+
+  FormsARecord:
+    Type: AWS::Route53::RecordSet
+    DependsOn: Route53Zone
+    Properties:
+      HostedZoneId: !Ref Route53Zone
+      Name: !Sub "forms.${WebsiteURL}"
+      Type: A
+      AliasTarget:
+        # DNSName: !Ref CloudFrontDomainName
+        # EvaluateTargetHealth: false
+        # HostedZoneId: Z2FDTNDATAQYW2
+        DNSName: !Ref CustomDomainDistributionDomainName
+        EvaluateTargetHealth: false
+        HostedZoneId: !Ref CustomDomainDistributionHostedZoneId

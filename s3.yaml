@@ -1,0 +1,84 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: "DynamoDB Part of Cloud4Engineers"
+
+Parameters:
+  ApplicationName:
+    Type: String
+  WebsiteURL:
+    Type: String
+  Referertoken:
+    Type: String
+
+Resources:
+
+  MainWebsiteBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Ref WebsiteURL
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - GET
+              - POST
+            AllowedOrigins:
+              - !Sub 'https://${WebsiteURL}'
+              - !Sub 'https://www.${WebsiteURL}'
+            Id: mains3corsrule
+
+  WWWWebsiteBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Join
+        - ""
+        - - "www."
+          - !Ref WebsiteURL
+      WebsiteConfiguration:
+        RedirectAllRequestsTo:
+          HostName: !Ref WebsiteURL
+          Protocol: http
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - GET
+              - POST
+            AllowedOrigins:
+              - !Sub 'https://${WebsiteURL}'
+              - !Sub 'https://www.${WebsiteURL}'
+            Id: mains3corsrule
+
+  PublicBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref MainWebsiteBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - 's3:GetObject'
+            Effect: Allow
+            Resource: !Join
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref MainWebsiteBucket
+                - /*
+            Principal: '*'
+            Condition:
+              StringLike:
+                "aws:Referer":
+                  - !Ref Referertoken
+
+Outputs:
+  MainWebsiteBucket:
+    Description: Main website bucket
+    Value: !Ref MainWebsiteBucket
+  WWWWebsiteBucket:
+    Description: www Bucket
+    Value: !Ref WWWWebsiteBucket

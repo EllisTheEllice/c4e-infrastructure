@@ -1,0 +1,113 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: An example template for a Step Functions state machine.
+
+Parameters:
+  ApplicationName:
+    Type: String
+  RecaptchaVerifyFunctionArn:
+    Type: String
+  SubmitFormFunctionArn:
+    Type: String
+
+
+Resources:
+  StepFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - states.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: CloudWatchLogsDeliveryFullAccessPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "logs:CreateLogDelivery"
+                  - "logs:GetLogDelivery"
+                  - "logs:UpdateLogDelivery"
+                  - "logs:DeleteLogDelivery"
+                  - "logs:ListLogDeliveries"
+                  - "logs:PutResourcePolicy"
+                  - "logs:DescribeResourcePolicies"
+                  - "logs:DescribeLogGroups"
+                Resource: "*"
+        - PolicyName: LambdaInvokePolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "lambda:InvokeFunction"
+                Resource:
+                  - !Sub "${SubmitFormFunctionArn}:*"
+                  - !Sub "${SubmitFormFunctionArn}"
+                  - !Sub "${RecaptchaVerifyFunctionArn}:*"
+                  - !Sub "${RecaptchaVerifyFunctionArn}"
+        - PolicyName: XRayAccessPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "xray:PutTraceSegments"
+                  - "xray:PutTelemetryRecords"
+                  - "xray:GetSamplingRules"
+                  - "xray:GetSamplingTargets"
+                Resource: "*"
+      Tags:
+        - Key: stack
+          Value: !Ref ApplicationName
+
+  FormDataStatemachine:
+    Type: AWS::StepFunctions::StateMachine
+    DependsOn: StepFunctionRole
+    Properties:
+      StateMachineName: !Sub "${ApplicationName}-form-statemachine"
+      DefinitionString: !Sub |-
+        {
+          "Comment": "A Hello World example of the Amazon States Language using Pass states",
+          "StartAt": "VerifyCaptcha",
+          "States": {
+            "VerifyCaptcha": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${RecaptchaVerifyFunctionArn}:$LATEST",
+                "Payload": {
+                  "body.$": "$"
+                }
+              },
+              "Next": "FormHandler"
+            },
+            "FormHandler": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${SubmitFormFunctionArn}:$LATEST",
+                "Payload": {
+                  "body.$": "$.Payload"
+                }
+              },
+              "End": true
+            }
+          }
+        }
+      RoleArn: !GetAtt StepFunctionRole.Arn
+      Tags:
+        - Key: stack
+          Value: !Ref ApplicationName
+
+Outputs:
+  FormDataStatemachine:
+    Value: !Ref FormDataStatemachine
+  FormDataStatemachineName:
+    Value: !GetAtt FormDataStatemachine.Name

@@ -1,0 +1,79 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: "DynamoDB Part of Cloud4Engineers"
+
+Parameters:
+  ApplicationName:
+    Type: String
+  CommentTableName:
+    Type: String
+  CommentTableArn:
+    Type: String
+
+Resources:
+  ProgressCommentFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: CommentTableAccessPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "dynamodb:GetItem"
+                  - "dynamodb:DeleteItem"
+                  - "dynamodb:PutItem"
+                  - "dynamodb:Scan"
+                  - "dynamodb:Query"
+                  - "dynamodb:UpdateItem"
+                  - "dynamodb:BatchWriteItem"
+                  - "dynamodb:BatchGetItem"
+                  - "dynamodb:DescribeTable"
+                  - "dynamodb:ConditionCheckItem"
+                Resource:
+                  - !Ref CommentTableArn
+                  - !Join
+                      - ""
+                      - - !Ref CommentTableArn
+                        - "/index/*"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Tags:
+        - Key: stack
+          Value: !Ref ApplicationName
+
+
+  ProgressCommentFunction:
+      Type: AWS::Lambda::Function
+      DependsOn: ProgressCommentFunctionRole
+      Properties:
+        Code: code/
+        Handler: index.handler
+        Runtime: nodejs12.x
+        MemorySize: 128
+        Timeout: 10
+        Role: !GetAtt ProgressCommentFunctionRole.Arn
+        FunctionName: !Sub "${ApplicationName}-commenthandler"
+        Environment:
+          Variables:
+            CommentTable: !Ref CommentTableName
+
+
+Outputs:
+  ProgressCommentFunction:
+    Description: "Lambda Function ARN"
+    Value: !GetAtt ProgressCommentFunction.Arn
+  ProgressCommentFunctionIamRole:
+    Description: "Implicit IAM Role created for function"
+    Value: !GetAtt ProgressCommentFunctionRole.Arn

@@ -1,0 +1,113 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: An example template for a Step Functions state machine.
+
+Parameters:
+  ApplicationName:
+    Type: String
+  RecaptchaVerifyFunctionArn:
+    Type: String
+  ProgressCommentFunctionArn:
+    Type: String
+
+
+Resources:
+  StepFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - states.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: CloudWatchLogsDeliveryFullAccessPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "logs:CreateLogDelivery"
+                  - "logs:GetLogDelivery"
+                  - "logs:UpdateLogDelivery"
+                  - "logs:DeleteLogDelivery"
+                  - "logs:ListLogDeliveries"
+                  - "logs:PutResourcePolicy"
+                  - "logs:DescribeResourcePolicies"
+                  - "logs:DescribeLogGroups"
+                Resource: "*"
+        - PolicyName: LambdaInvokePolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "lambda:InvokeFunction"
+                Resource:
+                  - !Sub "${ProgressCommentFunctionArn}:*"
+                  - !Sub "${ProgressCommentFunctionArn}"
+                  - !Sub "${RecaptchaVerifyFunctionArn}:*"
+                  - !Sub "${RecaptchaVerifyFunctionArn}"
+        - PolicyName: XRayAccessPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "xray:PutTraceSegments"
+                  - "xray:PutTelemetryRecords"
+                  - "xray:GetSamplingRules"
+                  - "xray:GetSamplingTargets"
+                Resource: "*"
+      Tags:
+        - Key: stack
+          Value: !Ref ApplicationName
+
+  ProgressCommentStatemachine:
+    Type: AWS::StepFunctions::StateMachine
+    DependsOn: StepFunctionRole
+    Properties:
+      StateMachineName: !Sub "${ApplicationName}-comment-statemachine"
+      DefinitionString: !Sub |-
+        {
+          "Comment": "A state machine that executes both the recaptcha-verify and the commenthandler function",
+          "StartAt": "VerifyCaptcha",
+          "States": {
+            "VerifyCaptcha": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${RecaptchaVerifyFunctionArn}:$LATEST",
+                "Payload": {
+                  "body.$": "$"
+                }
+              },
+              "Next": "CommentHandler"
+            },
+            "CommentHandler": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${ProgressCommentFunctionArn}:$LATEST",
+                "Payload": {
+                  "body.$": "$.Payload"
+                }
+              },
+              "End": true
+            }
+          }
+        }
+      RoleArn: !GetAtt StepFunctionRole.Arn
+      Tags:
+        - Key: stack
+          Value: !Ref ApplicationName
+
+Outputs:
+  ProgressCommentStatemachine:
+    Value: !Ref ProgressCommentStatemachine
+  ProgressCommentStatemachineName:
+    Value: !GetAtt ProgressCommentStatemachine.Name

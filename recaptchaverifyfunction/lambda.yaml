@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: "DynamoDB Part of Cloud4Engineers"
+
+Parameters:
+  ApplicationName:
+    Type: String
+  RecaptchaSecret:
+    Type: String
+
+Resources:
+  RecaptchaVerifyFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Tags:
+        - Key: stack
+          Value: !Ref ApplicationName
+
+
+  RecaptchaVerifyFunction:
+      Type: AWS::Lambda::Function
+      DependsOn: RecaptchaVerifyFunctionRole
+      Properties:
+        Code: code/
+        Handler: index.handler
+        Runtime: nodejs12.x
+        MemorySize: 128
+        Timeout: 10
+        FunctionName: !Sub "${ApplicationName}-recaptcha-verify"
+        Role: !GetAtt RecaptchaVerifyFunctionRole.Arn
+        Environment:
+          Variables:
+            RECAPTCHA_SECRET: !Ref RecaptchaSecret
+
+
+Outputs:
+  RecaptchaVerifyFunction:
+    Description: "Lambda Function ARN"
+    Value: !GetAtt RecaptchaVerifyFunction.Arn
+  RecaptchaVerifyFunctionIamRole:
+    Description: "Implicit IAM Role created for function"
+    Value: !GetAtt RecaptchaVerifyFunctionRole.Arn

@@ -1,0 +1,22 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  ApplicationName:
+    Type: String
+  WebsiteURL:
+    Type: String
+  CloudFrontDomainName:
+    Type: String
+
+# Resources:
+#   SSLCertificate:
+#     Type: AWS::CertificateManager::Certificate
+#     Properties:
+#       CertificateAuthorityArn: String
+#       CertificateTransparencyLoggingPreference: DISABLED
+#       DomainName: !Sub "*.${WebsiteURL}"
+#       DomainValidationOptions:
+#         - DomainValidationOption
+#       SubjectAlternativeNames:
+#         - !Ref WebsiteURL
+#       ValidationMethod: DNS

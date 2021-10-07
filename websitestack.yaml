@@ -1,0 +1,158 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: "Stack for cloud4engineers.com"
+
+Parameters:
+  ApplicationName:
+    Type: String
+  ValidatedEmail:
+    Type: String
+  Referertoken:
+    Type: String
+  WebsiteURL:
+    Type: String
+  RecaptchaSecret:
+    Type: String
+  ApiBurstLimit:
+    Type: String
+  ApiRateLimit:
+    Type: String
+  ApiLimit:
+    Type: String
+  CertArn:
+    Type: String
+  ArtifactsBucketName:
+    Type: String
+
+
+Mappings:
+  Config:
+    qa:
+      something: "Z06446242QU74OW92PE2V"
+    prod:
+      something: "Z0711726339MP039FO708"
+
+Resources:
+
+  S3Stack:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL: "s3.yaml"
+      Parameters:
+        ApplicationName: !Ref ApplicationName
+        Referertoken: !Ref Referertoken
+        WebsiteURL: !Ref WebsiteURL
+
+  DynamoDBStack:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL: "dynamodb.yaml"
+      Parameters:
+        ApplicationName: !Ref ApplicationName
+
+  SubmitFormFunction:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL: "submitformfunction/lambda.yaml"
+      Parameters:
+        ApplicationName: !Ref ApplicationName
+        FormTableName: !GetAtt DynamoDBStack.Outputs.FormTableName
+        FormTableArn: !GetAtt DynamoDBStack.Outputs.FormTableArn
+        ValidatedEmail: !Ref ValidatedEmail
+
+  ProgressCommentFunction:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL: "progresscommentfunction/lambda.yaml"
+      Parameters:
+        ApplicationName: !Ref ApplicationName
+        CommentTableName: !GetAtt DynamoDBStack.Outputs.CommentTableName
+        CommentTableArn: !GetAtt DynamoDBStack.Outputs.CommentTableArn
+
+  RecaptchaVerifyFunction:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL: "recaptchaverifyfunction/lambda.yaml"
+      Parameters:
+        ApplicationName: !Ref ApplicationName
+        RecaptchaSecret: !Ref RecaptchaSecret
+
+  ProgressCommentStepFunction:
+    Type: "AWS::CloudFormation::Stack"
+    DependsOn:
+    - ProgressCommentFunction
+    - RecaptchaVerifyFunction
+    Properties:
+      TemplateURL: "commentstepfunction.yaml"
+      Parameters:
+        ApplicationName: !Ref ApplicationName
+        RecaptchaVerifyFunctionArn: !GetAtt RecaptchaVerifyFunction.Outputs.RecaptchaVerifyFunction
+        ProgressCommentFunctionArn: !GetAtt ProgressCommentFunction.Outputs.ProgressCommentFunction
+
+  FormDataStepFunction:
+    Type: "AWS::CloudFormation::Stack"
+    DependsOn:
+    - SubmitFormFunction
+    - RecaptchaVerifyFunction
+    Properties:
+      TemplateURL: "formstepfunction.yaml"
+      Parameters:
+        ApplicationName: !Ref ApplicationName
+        RecaptchaVerifyFunctionArn: !GetAtt RecaptchaVerifyFunction.Outputs.RecaptchaVerifyFunction
+        SubmitFormFunctionArn: !GetAtt SubmitFormFunction.Outputs.SubmitFormFunction
+
+  Api:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+    - ProgressCommentStepFunction
+    - FormDataStepFunction
+    Properties:
+      TemplateURL: "api.yaml"
+      Parameters:
+        ApplicationName: !Ref ApplicationName
+        WebsiteURL: !Ref WebsiteURL
+        CommentTableName: !GetAtt DynamoDBStack.Outputs.CommentTableName
+        CommentTableArn: !GetAtt DynamoDBStack.Outputs.CommentTableArn
+        CommentStepFunctionArn: !GetAtt ProgressCommentStepFunction.Outputs.ProgressCommentStatemachine
+        CommentStepFunctionName: !GetAtt ProgressCommentStepFunction.Outputs.ProgressCommentStatemachineName
+        FormStepFunctionArn: !GetAtt FormDataStepFunction.Outputs.FormDataStatemachine
+        FormStepFunctionName: !GetAtt FormDataStepFunction.Outputs.FormDataStatemachineName
+        ApiBurstLimit: !Ref ApiBurstLimit
+        ApiRateLimit: !Ref ApiRateLimit
+        ApiLimit: !Ref ApiLimit
+        CertificateArn: !Ref CertArn
+
+  CloudFront:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: S3Stack
+    Properties:
+      TemplateURL: "cloudfront.yaml"
+      Parameters:
+        ApplicationName: !Ref ApplicationName
+        WebsiteURL: !Ref WebsiteURL
+        Referer: !Ref Referertoken
+        CertArn: !Ref CertArn
+
+  Route53:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: CloudFront
+    Properties:
+      TemplateURL: "route53.yaml"
+      Parameters:
+        ApplicationName: !Ref ApplicationName
+        WebsiteURL: !Ref WebsiteURL
+        CloudFrontDomainName: !GetAtt CloudFront.Outputs.CloudFrontDomainName
+        CustomDomainDistributionDomainName: !GetAtt Api.Outputs.CustomDomainDistributionDomainName
+        CustomDomainDistributionHostedZoneId: !GetAtt Api.Outputs.CustomDomainDistributionHostedZoneId
+
+  SES:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - Api
+      - Route53
+    Properties:
+      TemplateURL: "ses.yaml"
+      Parameters:
+        WebsiteURL: !Ref WebsiteURL
+        ValidatedEmail: !Ref ValidatedEmail
+        ArtifactsBucketName: !Ref ArtifactsBucketName
