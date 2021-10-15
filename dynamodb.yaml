@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: "DynamoDB Part of Cloud4Engineers"
+
+Parameters:
+  ApplicationName:
+    Type: String
+
+Resources:
+  CommentTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: "articleId"
+          AttributeType: "S"
+        -
+          AttributeName: "timestamp"
+          AttributeType: "N"
+      KeySchema:
+        -
+          AttributeName: "articleId"
+          KeyType: "HASH"
+        -
+          AttributeName: "timestamp"
+          KeyType: "RANGE"
+      ProvisionedThroughput:
+        ReadCapacityUnits: "1"
+        WriteCapacityUnits: "1"
+      TableName: !Sub "${ApplicationName}-comments"
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: false
+      Tags:
+        - Key: stack
+          Value: !Ref ApplicationName
+  FormTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: "formId"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "formId"
+          KeyType: "HASH"
+      BillingMode: PAY_PER_REQUEST
+      TableName: !Sub "${ApplicationName}-formdata"
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: false
+      Tags:
+        - Key: stack
+          Value: !Ref ApplicationName
+
+Outputs:
+  CommentTableName:
+    Description: DynamoDB Table
+    Value: !Ref CommentTable
+  CommentTableArn:
+    Description: DynamoDB Table
+    Value: !GetAtt CommentTable.Arn
+  FormTableName:
+    Description: DynamoDB Table
+    Value: !Ref FormTable
+  FormTableArn:
+    Description: DynamoDB Table
+    Value: !GetAtt  FormTable.Arn

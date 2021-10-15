@@ -1,0 +1,14 @@
+{
+    "Parameters": {
+        "ApplicationName": "<your app name; e.g. c4e>",
+        "ValidatedEmail": "<your validated email adress>",
+        "WebsiteURL": "<your website url; e.g. cloud4engineers.com>",
+        "CertArn": "<the arn of your acm certificate>",
+        "Referertoken": "<user-defined-token>",
+        "RecaptchaSecret": "<your-recaptcha-secret>",
+        "ApiBurstLimit": "100",
+        "ApiRateLimit": "10",
+        "ApiLimit": "200",
+        "ArtifactsBucketName": "<name of the S3 bucket to use for storing artifacts>"
+    }
+}

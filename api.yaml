@@ -1,0 +1,394 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: "ApiGateway Part of Cloud4Engineers"
+
+Parameters:
+  ApplicationName:
+    Type: String
+  WebsiteURL:
+    Type: String
+  CommentTableName:
+    Type: String
+  CommentTableArn:
+    Type: String
+  CommentStepFunctionArn:
+    Type: String
+  FormStepFunctionArn:
+    Type: String
+  ApiBurstLimit:
+    Type: String
+  ApiRateLimit:
+    Type: String
+  ApiLimit:
+    Type: String
+  CertificateArn:
+    Type: String
+  FormStepFunctionName:
+    Type: String
+  CommentStepFunctionName:
+    Type: String
+
+Resources:
+  ApiGatewayRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - apigateway.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: /
+      Policies:
+        - PolicyName: CommentTableAccess
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "dynamodb:GetItem"
+                  - "dynamodb:Scan"
+                  - "dynamodb:Query"
+                  - "dynamodb:BatchGetItem"
+                  - "dynamodb:DescribeTable"
+                  - "dynamodb:ConditionCheckItem"
+                Resource:
+                  - !Ref CommentTableArn
+                  - !Sub "${CommentTableArn}/index/*"
+        - PolicyName: ExecuteStepFunctionsPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "states:DescribeStateMachine"
+                  - "states:DescribeExecution"
+                  - "states:ListExecutions"
+                  - "states:StartExecution"
+                  - "states:StartSyncExecution"
+                Resource:
+                  - !Ref CommentStepFunctionArn
+                  - !Sub "${CommentStepFunctionArn}:*"
+                  - !Ref FormStepFunctionArn
+                  - !Sub "${FormStepFunctionArn}:*"
+                  - !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:execution:${FormStepFunctionName}:*"
+                  - !Sub "arn:aws:states:${AWS::Region}:${AWS::AccountId}:execution:${CommentStepFunctionName}:*"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+      Tags:
+        - Key: stack
+          Value: !Ref ApplicationName
+
+  RestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      DisableExecuteApiEndpoint: true
+      EndpointConfiguration:
+        Types:
+          - "EDGE"
+      Name: !Sub "${ApplicationName}-api"
+      Tags:
+        - Key: stack
+          Value: !Ref ApplicationName
+
+  Comment:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: "comment"
+
+  SpecificComment:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref Comment
+      PathPart: "{articleId}"
+
+  SpecificCommentGet:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref SpecificComment
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:dynamodb:action/Query"
+        PassthroughBehavior: NEVER
+        Credentials: !GetAtt ApiGatewayRole.Arn
+        RequestTemplates:
+          application/json: !Sub |
+                                  {
+                                    "TableName": "${CommentTableName}",
+                                    "KeyConditionExpression": "articleId = :a",
+                                    "ScanIndexForward":false,
+                                    "ExpressionAttributeValues": {
+                                          ":a": {"S": "$input.params('articleId')"}
+                                    }
+                                  }
+        IntegrationResponses:
+          - ResponseTemplates:
+              application/json: |
+                                  #set($inputRoot = $input.path('$'))
+                                  {
+                                      "comments": [
+                                          #foreach($elem in $inputRoot.Items) {
+                                              "articleId": "$elem.articleId.S",
+                                              "nickname": "$elem.nickname.S",
+                                              "timestamp": "$elem.timestamp.N",
+                                              "message": "$elem.message.S"
+                                          }#if($foreach.hasNext),#end
+                                          #end
+                                      ]
+                                  }
+            StatusCode: 200
+            SelectionPattern: "200"
+            ResponseParameters:
+                method.response.header.Access-Control-Allow-Origin: !Sub "'https://www.${WebsiteURL}'"
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: false
+
+  SpecificCommentOptions:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref SpecificComment
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        PassthroughBehavior: WHEN_NO_MATCH
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS,POST'"
+              method.response.header.Access-Control-Allow-Origin: !Sub "'https://www.${WebsiteURL}'"
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: false
+            method.response.header.Access-Control-Allow-Methods: false
+            method.response.header.Access-Control-Allow-Origin: false
+
+  SpecificCommentPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref SpecificComment
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:states:action/StartExecution"
+        PassthroughBehavior: NEVER
+        Credentials: !GetAtt ApiGatewayRole.Arn
+        IntegrationResponses:
+          - ResponseTemplates:
+              application/json: "#set ($a=$input.json('$.executionArn').split(':')[6].replace('\"\
+                                ', \"\"))\r\n#set ($b=$input.json('$.executionArn').split(':')[7].replace('\"\
+                                ', \"\"))\r\n{\r\n  \"token\": \"$a:$b\"\r\n}"
+            StatusCode: 200
+            SelectionPattern: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: !Sub "'https://www.${WebsiteURL}'"
+          - StatusCode: 400
+            SelectionPattern: "400"
+        RequestTemplates:
+          application/json: !Sub "{\n    \"input\": \"$util.escapeJavaScript($input.json('$'))\"\
+                            ,\n    \"stateMachineArn\": \"${CommentStepFunctionArn}\"\
+                            \n}"
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: false
+        - StatusCode: "400"
+
+# ################
+# # /execstatus  #
+# ################
+  ExecStatus:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: "execstatus"
+
+  ExecstatusOptions:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref ExecStatus
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        PassthroughBehavior: WHEN_NO_MATCH
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'OPTIONS,POST'"
+              method.response.header.Access-Control-Allow-Origin: !Sub "'https://www.${WebsiteURL}'"
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: false
+            method.response.header.Access-Control-Allow-Methods: false
+            method.response.header.Access-Control-Allow-Origin: false
+
+  ExecstatusPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref ExecStatus
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:states:action/DescribeExecution"
+        PassthroughBehavior: NEVER
+        Credentials: !GetAtt ApiGatewayRole.Arn
+        IntegrationResponses:
+          - ResponseTemplates:
+              application/json: "#set ($json=$input.json('$.output'))\r\n#set ($status=$input.json('$.status').replace('\"\
+                  ', \"\"))\r\n#if(!$json || $json=='\"\"')\r\n{\r\n    \"status\":\
+                  \ \"$status\"\r\n}\r\n#else\r\n{\r\n    \"output\": $util.parseJson($json),\r\
+                  \n    \"status\": \"$status\"\r\n}\r\n#end"
+            StatusCode: 200
+            SelectionPattern: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: !Sub "'https://www.${WebsiteURL}'"
+        RequestTemplates:
+          application/json: !Sub "{\r\n    \"executionArn\": \"arn:aws:states:${AWS::Region}:${AWS::AccountId}:execution:$input.json('$.token').replace('\"\
+              ', \"\")\"\r\n}"
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: false
+
+##########################
+# /handleformsubmission  #
+##########################
+  HandleFormSubmission:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: "handleformsubmission"
+
+  HandleFormOptions:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref HandleFormSubmission
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        PassthroughBehavior: WHEN_NO_MATCH
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'OPTIONS,POST'"
+              method.response.header.Access-Control-Allow-Origin: !Sub "'https://www.${WebsiteURL}'"
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: false
+            method.response.header.Access-Control-Allow-Methods: false
+            method.response.header.Access-Control-Allow-Origin: false
+
+  HandleFormPost:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref HandleFormSubmission
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:states:action/StartExecution"
+        PassthroughBehavior: NEVER
+        Credentials: !GetAtt ApiGatewayRole.Arn
+        IntegrationResponses:
+          - ResponseTemplates:
+              application/json: "#set ($a=$input.json('$.executionArn').split(':')[6].replace('\"\
+                  ', \"\"))\r\n#set ($b=$input.json('$.executionArn').split(':')[7].replace('\"\
+                  ', \"\"))\r\n{\r\n  \"token\": \"$a:$b\"\r\n}"
+            StatusCode: 200
+            SelectionPattern: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: !Sub "'https://www.${WebsiteURL}'"
+        RequestTemplates:
+          application/json: !Sub |
+                                  {
+                                    "input": "$util.escapeJavaScript($input.json('$'))",
+                                    "stateMachineArn": "${FormStepFunctionArn}"
+                                  }
+      MethodResponses:
+        - StatusCode: "200"
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: false
+
+  Prod:
+    Type: 'AWS::ApiGateway::Deployment'
+    DependsOn:
+      - SpecificCommentGet
+      - SpecificCommentOptions
+      - SpecificCommentPost
+      - ExecstatusPost
+      - ExecstatusOptions
+      - HandleFormOptions
+      - HandleFormPost
+    Properties:
+      RestApiId: !Ref RestApi
+      Description: Production deployment
+      StageName: PROD
+      StageDescription:
+        ThrottlingBurstLimit: !Ref ApiBurstLimit
+        ThrottlingRateLimit: !Ref ApiRateLimit
+
+  CustomDomainName:
+    Type: 'AWS::ApiGateway::DomainName'
+    Properties:
+      DomainName: !Sub "forms.${WebsiteURL}"
+      CertificateArn: !Ref CertificateArn
+      EndpointConfiguration:
+        Types:
+          - EDGE
+      SecurityPolicy: TLS_1_2
+
+  ApiToDomainMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    DependsOn:
+      - Prod
+      - CustomDomainName
+    Properties:
+      DomainName: !Sub "forms.${WebsiteURL}"
+      RestApiId: !Ref RestApi
+      Stage: PROD
+
+Outputs:
+  CustomDomainDistributionDomainName:
+    Value: !GetAtt CustomDomainName.DistributionDomainName
+
+  CustomDomainDistributionHostedZoneId:
+    Value: !GetAtt CustomDomainName.DistributionHostedZoneId

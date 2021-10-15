@@ -1,0 +1,97 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: "DynamoDB Part of Cloud4Engineers"
+
+Parameters:
+  ApplicationName:
+    Type: String
+  ValidatedEmail:
+    Type: String
+    Description: (Required) A validated SES email address for receiving new submissions.
+    MaxLength: 70
+    MinLength: 4
+    ConstraintDescription: Required. Must be a SES verified email address.
+  FormTableName:
+    Type: String
+  FormTableArn:
+    Type: String
+
+Resources:
+  SubmitFormFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: FormDataTableAccessPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "dynamodb:GetItem"
+                  - "dynamodb:DeleteItem"
+                  - "dynamodb:PutItem"
+                  - "dynamodb:Scan"
+                  - "dynamodb:Query"
+                  - "dynamodb:UpdateItem"
+                  - "dynamodb:BatchWriteItem"
+                  - "dynamodb:BatchGetItem"
+                  - "dynamodb:DescribeTable"
+                  - "dynamodb:ConditionCheckItem"
+                Resource:
+                  - !Ref FormTableArn
+                  - !Join
+                      - ""
+                      - - !Ref FormTableArn
+                        - "/index/*"
+        - PolicyName: SESAccessPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "ses:GetIdentityVerificationAttributes"
+                  - "ses:SendEmail"
+                  - "ses:SendRawEmail"
+                  - "ses:VerifyEmailIdentity"
+                Resource:
+                  - "*"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Tags:
+        - Key: stack
+          Value: !Ref ApplicationName
+
+
+  SubmitFormFunction:
+      Type: AWS::Lambda::Function
+      DependsOn: SubmitFormFunctionRole
+      Properties:
+        Code: code/
+        Handler: app.handler
+        Runtime: nodejs12.x
+        MemorySize: 128
+        Timeout: 10
+        Role: !GetAtt SubmitFormFunctionRole.Arn
+        FunctionName: !Sub "${ApplicationName}-formhandler"
+        Environment:
+          Variables:
+            ValidatedEmail: !Ref ValidatedEmail
+            FormDataTable: !Ref FormTableName
+
+Outputs:
+  SubmitFormFunction:
+    Description: "Lambda Function ARN"
+    Value: !GetAtt SubmitFormFunction.Arn
+  SubmitFormFunctionIamRole:
+    Description: "Implicit IAM Role created for function"
+    Value: !GetAtt SubmitFormFunctionRole.Arn

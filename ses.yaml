@@ -1,0 +1,39 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: "SES Part of Cloud4Engineers"
+
+Parameters:
+  ArtifactsBucketName:
+    Type: String
+  WebsiteURL:
+    Type: String
+  ValidatedEmail:
+    Type: String
+
+Resources:
+
+  CfnSESResources:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://s3.amazonaws.com/${ArtifactsBucketName}/aws-cfn-ses-domain-0.3.cf.yaml"
+      Parameters:
+        LambdaCodeS3Bucket: !Ref ArtifactsBucketName
+        LambdaCodeS3Key: aws-cfn-ses-domain-0.3.lambda.zip
+
+  SESDomain:
+    Type: Custom::SES_Domain
+    Properties:
+      ServiceToken: !GetAtt CfnSESResources.Outputs.CustomDomainIdentityArn
+      Domain: !Ref WebsiteURL
+
+  SESEmailIdentity:
+    Type: Custom::SES_EmailIdentity
+    Properties:
+      ServiceToken: !GetAtt CfnSESResources.Outputs.CustomEmailIdentityArn
+      EmailAddress: !Ref ValidatedEmail
+
+  Route53RecordsForSES:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneName: !Sub "${WebsiteURL}."
+      RecordSets: !GetAtt SESDomain.Route53RecordSets
