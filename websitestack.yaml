@@ -20,7 +20,7 @@ Parameters:
     Description: "The secret used to validate the recaptcha string. This has to be created within google: https://cloud.google.com/recaptcha-enterprise/docs/create-key"
   ApiBurstLimit:
     Type: String
-    Description: "This parameter is used ti create an limit for the API Gateway used. This avoids high cost in case of (D)DoS"    
+    Description: "This parameter is used to create an limit for the API Gateway used. This avoids high cost in case of (D)DoS"
   ApiRateLimit:
     Type: String
     Description: "This parameter is used ti create an limit for the API Gateway used. This avoids high cost in case of (D)DoS"

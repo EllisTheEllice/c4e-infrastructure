@@ -28,7 +28,7 @@ const sendEmail = async function (formData) {
     }
     return retval
   }
-  
+
   return new Promise(async (resolve, reject) => {
 
     // Build params for SES
