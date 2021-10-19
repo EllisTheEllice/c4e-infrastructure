@@ -2,7 +2,8 @@
     rev: v4.0.1
     hooks:
     -   id: check-yaml
-        with:
+         with:
           - allow-multiple-documents
           - unsafe
     -   id: detect-aws-credentials
+    -   id: trailing-whitespace
