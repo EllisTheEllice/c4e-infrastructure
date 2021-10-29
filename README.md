@@ -84,7 +84,7 @@ To execute the CloudFormation stack, I have created a [powershell file](deploy.p
 
 ## Use CloudFormation from a Linux environment
 
-To execute the CloudFormation stack, I have created a [bash script](deploy.ps1). Before executing the file, it must also be adapted. Right at the top you´ll find 4 parameters which you have to adapt to meet your setup.
+To execute the CloudFormation stack, I have created a [bash script](deploy.sh). Before executing the file, it must also be adapted. Right at the top you´ll find 4 parameters which you have to adapt to meet your setup.
 
 # Last steps
 
