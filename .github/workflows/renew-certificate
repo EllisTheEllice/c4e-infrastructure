@@ -14,7 +14,8 @@ jobs:
     env:
       # These environmental variables values are set from repository secrets. The sample script references these values for authenticating against Cloudflare and Azure
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }} 
-      AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_KEY }} 
+      AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_KEY }}
+      DOMAIN: 'www.cloud4engineers.com'
     name: Modifiy repository files
     runs-on: ubuntu-latest
     steps:
