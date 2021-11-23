@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "Install dependencies"
-sudo apt install -y certbot azure-cli openssl python3-certbot-dns-cloudflare
+sudo apt install -y aws-cli certbot openssl
 
 echo "Creates the CloudFlare Credentials"
 
@@ -12,6 +12,7 @@ echo "Creates the CloudFlare Credentials"
 
 echo "Renews the certificates"
 sudo certbot certonly --dns-cloudflare --dns-cloudflare-credentials ./cftoken -d $DOMAIN -m $CB_EMAIL --config-dir . --cert-path . --non-interactive --agree-tos
+sudo certbot certonly -d *.$DOMAIN,$DOMAIN - --preferred-challenges dns
 
 # Certbot runs as root, so it creates all the files as root. This changes the permissions so that other utilities can read the file.
 echo "Set file permissions"
