@@ -11,8 +11,7 @@ echo "Creates the CloudFlare Credentials"
 # Also, you may want to use the --staging flag while working in development.
 
 echo "Renews the certificates"
-sudo certbot certonly --dns-cloudflare --dns-cloudflare-credentials ./cftoken -d $DOMAIN -m $CB_EMAIL --config-dir . --cert-path . --non-interactive --agree-tos
-sudo certbot certonly -d *.$DOMAIN,$DOMAIN - --preferred-challenges dns
+sudo certbot certonly --dns-route53 -d $DOMAIN -d www.$DOMAIN
 
 # Certbot runs as root, so it creates all the files as root. This changes the permissions so that other utilities can read the file.
 echo "Set file permissions"
