@@ -1,9 +1,11 @@
 #!/bin/bash
 
 echo "Install dependencies"
-sudo apt install -y aws-cli certbot openssl
-
-echo "Creates the CloudFlare Credentials"
+#sudo apt install -y aws-cli certbot openssl
+sudo snap install --classic certbot
+sudo ln -s /snap/bin/certbot /usr/bin/certbot
+sudo snap set certbot trust-plugin-with-root=ok
+sudo snap install certbot-dns-route53
 
 # This command calls certbot for Let's Encrpypt. This example uses CloudFlare DNS for validation. Let's Encrypt supports many different DNS providers
 # https://certbot.eff.org/docs/using.html?highlight=dns#dns-plugins
