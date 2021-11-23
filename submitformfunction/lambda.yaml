@@ -65,7 +65,6 @@ Resources:
                   - "ses:VerifyEmailIdentity"
                 Resource:
                   - "*"
-                  #- "arn:aws:ses:eu-central-1:575860075599:identity/cloud4engineers@gmail.com"
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Tags:

@@ -1,36 +1,38 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
-Description: "Stack for cloud4engineers.com"
+Description: "This is the parent stack containing all nested stacks required to setup the static website"
 
 Parameters:
   ApplicationName:
     Type: String
+    Description: "Name of the application/stack to be deployed"
   ValidatedEmail:
     Type: String
+    Description: "E-Mail address to send mails to. This is used for alarms as well as for the contact form"
   Referertoken:
     Type: String
+    Description: "Token used to protect the S3 from unwanted direct access. This token is passed as a header from CloudFront to the S3 and checked there"
   WebsiteURL:
     Type: String
+    Description: "Domain of the application (without www.)"
   RecaptchaSecret:
     Type: String
+    Description: "The secret used to validate the recaptcha string. This has to be created within google: https://cloud.google.com/recaptcha-enterprise/docs/create-key"
   ApiBurstLimit:
     Type: String
+    Description: "This parameter is used to create an limit for the API Gateway used. This avoids high cost in case of (D)DoS"
   ApiRateLimit:
     Type: String
+    Description: "This parameter is used ti create an limit for the API Gateway used. This avoids high cost in case of (D)DoS"
   ApiLimit:
     Type: String
+    Description: "This parameter is used ti create an limit for the API Gateway used. This avoids high cost in case of (D)DoS"
   CertArn:
     Type: String
+    Description: "The arn of the imported/created AWS Certificate manager certificate"
   ArtifactsBucketName:
     Type: String
-
-
-Mappings:
-  Config:
-    qa:
-      something: "Z06446242QU74OW92PE2V"
-    prod:
-      something: "Z0711726339MP039FO708"
+    Description: "Name of the S3 bucket where the uploaded cfnartifacts are stored. This bucket has to be created manually before creating the stack"
 
 Resources:
 

@@ -43,7 +43,6 @@ Resources:
           ViewerProtocolPolicy: redirect-to-https
         PriceClass: PriceClass_All
         ViewerCertificate:
-          #CloudFrontDefaultCertificate: "false"
           MinimumProtocolVersion: TLSv1.2_2021
           AcmCertificateArn: !Ref CertArn
           SslSupportMethod: sni-only
