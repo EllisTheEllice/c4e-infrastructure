@@ -19,13 +19,13 @@ Parameters:
     Type: String
   ApiRateLimit:
     Type: String
-  ApiLimit:
-    Type: String
   CertificateArn:
     Type: String
   FormStepFunctionName:
     Type: String
   CommentStepFunctionName:
+    Type: String
+  ValidatedEmail:
     Type: String
 
 Resources:
@@ -385,6 +385,38 @@ Resources:
       DomainName: !Sub "forms.${WebsiteURL}"
       RestApiId: !Ref RestApi
       Stage: PROD
+
+  ApiGWAlarmStateTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - Endpoint: !Ref ValidatedEmail
+          Protocol: Email
+      #   - Endpoint:
+      #       Fn::GetAtt:
+      #         - "MyQueue2"
+      #         - "Arn"
+      #     Protocol: "sqs"
+      TopicName: "ApiGW_Sample_Count_Alarm_State"
+
+  CPUAlarmHigh:
+    Type: 'AWS::CloudWatch::Alarm'
+    Properties:
+      AlarmDescription: Send to SNS if ApiGW count avg exceeds threshold
+      MetricName: Count
+      Namespace: AWS/ApiGateway
+      Statistic: Average
+      Period: '60'
+      EvaluationPeriods: '2'
+      Threshold: '7'
+      AlarmActions:
+        - !Ref ApiGWAlarmStateTopic
+      Dimensions:
+        - Name: ApiName
+          Value: !Sub "${ApplicationName}-api"
+        - Name: Stage
+          Value: PROD
+      ComparisonOperator: GreaterThanOrEqualToThreshold
 
 Outputs:
   CustomDomainDistributionDomainName:

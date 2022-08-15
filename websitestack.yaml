@@ -23,10 +23,7 @@ Parameters:
     Description: "This parameter is used to create an limit for the API Gateway used. This avoids high cost in case of (D)DoS"
   ApiRateLimit:
     Type: String
-    Description: "This parameter is used ti create an limit for the API Gateway used. This avoids high cost in case of (D)DoS"
-  ApiLimit:
-    Type: String
-    Description: "This parameter is used ti create an limit for the API Gateway used. This avoids high cost in case of (D)DoS"
+    Description: "This parameter is used to create an limit for the API Gateway used. This avoids high cost in case of (D)DoS"
   CertArn:
     Type: String
     Description: "The arn of the imported/created AWS Certificate manager certificate"
@@ -121,8 +118,8 @@ Resources:
         FormStepFunctionName: !GetAtt FormDataStepFunction.Outputs.FormDataStatemachineName
         ApiBurstLimit: !Ref ApiBurstLimit
         ApiRateLimit: !Ref ApiRateLimit
-        ApiLimit: !Ref ApiLimit
         CertificateArn: !Ref CertArn
+        ValidatedEmail: !Ref ValidatedEmail
 
   CloudFront:
     Type: AWS::CloudFormation::Stack

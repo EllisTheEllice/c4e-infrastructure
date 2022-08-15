@@ -8,7 +8,6 @@
         "RecaptchaSecret": "<your-recaptcha-secret>",
         "ApiBurstLimit": "100",
         "ApiRateLimit": "10",
-        "ApiLimit": "200",
         "ArtifactsBucketName": "<name of the S3 bucket to use for storing artifacts>"
     }
 }
